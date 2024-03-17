@@ -1,10 +1,10 @@
+import time
 import math
 import numpy as np
 
-from datasets import load_dataset
 from multiprocessing import Pool
-
-from utils import timer
+from datasets import load_dataset
+from line_profiler import LineProfiler
 
 
 PROCESS_NUM = 30
@@ -42,7 +42,6 @@ class KNN:
     def get_labels(self, xs, s, e):
         return [self.get_label(x) for x in xs], s, e
 
-    @timer
     def predict(self, x_test):
         predicted_test_labels = np.zeros(shape=[len(x_test)], dtype=int)
         results = []
@@ -62,23 +61,29 @@ class KNN:
 
 def main():
     dataset = load_dataset('mnist')
-    x_train = np.array(list(map(np.array, dataset['train']['image'])))
+    x_train = np.array(list(map(np.array, dataset['train']['image']))).astype(np.float32)
     y_train = dataset['train']['label']
 
     x_test = np.array(list(map(np.array, dataset['test']['image'])))
     y_test = dataset['test']['label']
 
-    for k in range(1, 10):
+    for k in range(1, 2):
+        s = time.time()
         knn = KNN(k, label_num=10)
         knn.fit(x_train, y_train)
         predicted_labels = knn.predict(x_test)
 
         print(len(predicted_labels))
         accuracy = np.mean(predicted_labels == y_test)
-        print(k, accuracy)
+        print(k, accuracy, time.time() - s)
 
 
 if __name__ == '__main__':
     # 1 0.2727
     # 2 0.2432
-    main()
+
+    lp = LineProfiler()
+    lp.add_function(KNN.predict)
+    lp_wrapper = lp(main)
+    lp_wrapper()
+    lp.print_stats()
